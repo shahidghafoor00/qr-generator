@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QR Generator — Static (GitHub Pages)</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#10b981;--muted:#94a3b8}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071128,#071826);color:#e6eef8;padding:24px}
+    .card{width:100%;max-width:900px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:20px;box-shadow:0 6px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 6px;font-size:20px}
+    p.lead{margin:0 0 18px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 340px;gap:18px}
+    .form{display:flex;flex-direction:column;gap:10px}
+    label{font-size:13px;color:var(--muted)}
+    input[type="text"], select, textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    textarea{min-height:100px;resize:vertical}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    button{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:#04201f;font-weight:600;cursor:pointer;transition:0.15s}
+    button:hover{opacity:0.9;transform:translateY(-1px)}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.08);color:var(--muted)}
+    #download{font-size:16px;padding:14px 24px;font-weight:700;background:var(--accent);color:#04201f;width:100%}
+    .preview{display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px;border-radius:10px;background:rgba(255,255,255,0.01);min-height:320px;overflow:hidden}
+    #qrcode{display:flex;align-items:center;justify-content:center;padding:8px;background:#fff;border-radius:8px;max-width:100%;max-height:400px;overflow:hidden}
+    #qrcode img,#qrcode canvas{max-width:100%;height:auto;object-fit:contain}
+    .meta{font-size:13px;color:var(--muted)}
+    footer{margin-top:12px;color:var(--muted);font-size:12px;text-align:center}
+    @media (max-width:880px){.grid{grid-template-columns:1fr;}.preview{min-height:260px}}
+  </style>
+</head>
+<body>
+  <div class="card" role="main">
+    <h1>QR Code Generator</h1>
+    <p class="lead">Generates QR codes entirely in your browser — safe to host on GitHub Pages. Type text or a URL, tweak size & error level, then download.</p>
+
+    <div class="grid">
+      <div>
+        <div class="form">
+          <div>
+            <label for="text">Text or URL</label>
+            <textarea id="text" placeholder="https://example.com or any text..."></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <div style="flex:1">
+              <label for="size">Size (px)</label>
+              <input id="size" type="number" min="64" max="2000" value="320" />
+            </div>
+            <div style="width:140px">
+              <label for="ecc">Error correction</label>
+              <select id="ecc">
+                <option value="L">L - Low (7%)</option>
+                <option value="M" selected>M - Medium (15%)</option>
+                <option value="Q">Q - Quartile (25%)</option>
+                <option value="H">H - High (30%)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button id="generate">Generate</button>
+            <button id="clear" class="ghost" type="button">Clear</button>
+          </div>
+
+          <div class="meta">Tip: Paste any text or URL. The QR is generated locally — nothing leaves the browser.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="preview">
+          <div id="qrcode" aria-live="polite" title="QR code preview">
+            <span style="color:var(--muted)">No QR yet — click Generate</span>
+          </div>
+          <button id="download" type="button">⬇️ Download PNG</button>
+          <div class="meta" id="info">Size: — · Error correction: —</div>
+        </div>
+      </div>
+    </div>
+
+    <footer>Static & privacy-friendly — ready for GitHub Pages.</footer>
+  </div>
+
+  <!-- QRCode.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let qrcode = null, lastDataUrl = null;
+
+    function getCorrectLevel(letter){
+      switch(letter){
+        case 'L': return QRCode.CorrectLevel.L;
+        case 'M': return QRCode.CorrectLevel.M;
+        case 'Q': return QRCode.CorrectLevel.Q;
+        case 'H': return QRCode.CorrectLevel.H;
+        default: return QRCode.CorrectLevel.M;
+      }
+    }
+
+    function generate(){
+      const text = $('text').value.trim();
+      const size = Math.max(64, Math.min(2000, parseInt($('size').value) || 320));
+      const ecc = $('ecc').value;
+      const container = $('qrcode');
+      container.innerHTML = '';
+      lastDataUrl = null;
+
+      if(!text){
+        container.innerHTML = '<span style="color:var(--muted)">Enter text or URL first.</span>';
+        $('info').textContent = 'Size: — · Error correction: —';
+        return;
+      }
+
+      qrcode = new QRCode(container, {
+        text,
+        width: size,
+        height: size,
+        correctLevel: getCorrectLevel(ecc)
+      });
+
+      // Wait a moment for QRCode.js to insert its <img>
+      setTimeout(()=>{
+        const img = container.querySelector('img');
+        const canvas = container.querySelector('canvas');
+        if(canvas){
+          lastDataUrl = canvas.toDataURL('image/png');
+        } else if(img){
+          lastDataUrl = img.src;
+        }
+      },200);
+
+      $('info').textContent = 'Size: ' + size + 'px · Error correction: ' + ecc;
+    }
+
+    function clearQR(){
+      $('qrcode').innerHTML = '<span style="color:var(--muted)">No QR yet — click Generate</span>';
+      $('info').textContent = 'Size: — · Error correction: —';
+      lastDataUrl = null;
+      $('text').focus();
+    }
+
+    function downloadPNG(){
+      if(!lastDataUrl){
+        alert('Generate a QR code first.');
+        return;
+      }
+      const a = document.createElement('a');
+      const safeText = $('text').value.trim().slice(0,40).replace(/[\s/:?#&=]+/g,'-') || 'qr';
+      a.download = safeText + '-qr.png';
+      a.href = lastDataUrl;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    $('generate').addEventListener('click', generate);
+    $('clear').addEventListener('click', clearQR);
+    $('download').addEventListener('click', downloadPNG);
+  </script>
+</body>
+</html>
